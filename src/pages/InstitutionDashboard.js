@@ -75,6 +75,9 @@ function InstitutionDashboard() {
 
   // toast
   const [toast, setToast] = useState({ type: "", message: "" });
+  const [viewStudent, setViewStudent] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
 
   const navigate = useNavigate();
 
@@ -501,60 +504,255 @@ function InstitutionDashboard() {
           </section>
         )}
 
-        {selectedSection === "Applications" && (
-          <section style={{ marginTop: 6 }}>
-            <h2 style={{ margin: "6px 0 12px 0" }}>Student Applications</h2>
-            <div style={{ background: "#fff", padding: 12, borderRadius: 10, boxShadow: "0 6px 18px rgba(2,6,23,0.04)" }}>
-              {applications.length === 0 ? <div style={{ padding: 12, color: "#475569" }}>No applications yet.</div> : (
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ textAlign: "left", borderBottom: "1px solid #eef2f7" }}>
-                      <th style={thStyle}>Student</th>
-                      <th style={thStyle}>Course</th>
-                      <th style={thStyle}>Applied on</th>
-                      <th style={thStyle}>Status</th>
-                      <th style={thStyle}></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {applications.map(a => (
-                      <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                        <td style={tdStyle}>{a.studentName || a.studentId}</td>
-                        <td style={tdStyle}>{a.course}</td>
-                        <td style={tdStyle}>{a.createdAt ? new Date(a.createdAt.seconds * 1000).toLocaleDateString() : "—"}</td>
-                        <td style={tdStyle}><span style={{ ...statusBadge(a.status) }}>{a.status}</span></td>
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <select value={a.status} onChange={e => handleStatusChange(a.id, e.target.value)} style={{ padding: "6px 8px", borderRadius: 8, border: "1px solid #e6eef6" }}>
-                              <option value="pending">Pending</option>
-                              <option value="admitted">Admitted</option>
-                              <option value="rejected">Rejected</option>
-                            </select>
-                            <button onClick={() => {
-                              // view student detail
-                              (async () => {
-                                try {
-                                  const sDoc = await getDoc(doc(db, "users", a.studentId));
-                                  if (sDoc.exists()) {
-                                    const s = sDoc.data();
-                                    alert(`Name: ${s.fullName || s.displayName || "N/A"}\nEmail: ${s.email || "N/A"}\nPhone: ${s.phone || "N/A"}\nAddress: ${s.address || "N/A"}`);
-                                  } else showToast("error", "Student record not found");
-                                } catch (err) {
-                                  console.error(err);
-                                  showToast("error", "Failed to fetch student");
-                                }
-                              })();
-                            }} style={{ ...secondaryButton }}> <Eye /> View</button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+  {selectedSection === "Applications" && (
+  <section style={{ marginTop: 6 }}>
+    <h2 style={{ margin: "6px 0 12px 0" }}>Student Applications</h2>
+
+    {/* Modal for viewing student details */}
+    {viewStudent && (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.45)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 9999,
+        }}
+      >
+        <div
+          style={{
+            background: "#fff",
+            padding: 24,
+            borderRadius: 14,
+            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+            width: 420,
+            maxWidth: "90%",
+          }}
+        >
+          <h3 style={{ marginBottom: 12, color: "#1e293b" }}>Student Details</h3>
+
+          {/* Student Photo */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <div
+              onClick={() => setImagePreview(viewStudent.photoURL)}
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: "50%",
+                overflow: "hidden",
+                background: "#f8fafc",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: viewStudent.photoURL ? "pointer" : "default",
+              }}
+            >
+              {viewStudent.photoURL ? (
+                <img
+                  src={viewStudent.photoURL}
+                  alt="Student"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <div
+                  style={{
+                    color: "#94a3b8",
+                    fontSize: 13,
+                    textAlign: "center",
+                    padding: 12,
+                  }}
+                >
+                  No Photo
+                </div>
               )}
             </div>
-          </section>
-        )}
+            <p style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>
+              (Click to enlarge)
+            </p>
+          </div>
+
+          {/* Student Info */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              fontSize: 15,
+              color: "#334155",
+            }}
+          >
+            <div>
+              <strong>Name:</strong>{" "}
+              {viewStudent.fullName || viewStudent.displayName || "N/A"}
+            </div>
+            <div>
+              <strong>Email:</strong> {viewStudent.email || "N/A"}
+            </div>
+            <div>
+              <strong>Phone:</strong> {viewStudent.phone || "N/A"}
+            </div>
+            <div>
+              <strong>Address:</strong> {viewStudent.address || "N/A"}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 20, textAlign: "right" }}>
+            <button
+              onClick={() => setViewStudent(null)}
+              style={{
+                background: "#2563eb",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                padding: "8px 14px",
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Full Image Preview Modal */}
+    {imagePreview && (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "rgba(0,0,0,0.8)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          zIndex: 10000,
+        }}
+        onClick={() => setImagePreview(null)}
+      >
+        <img
+          src={imagePreview}
+          alt="Full Preview"
+          style={{
+            maxWidth: "90%",
+            maxHeight: "90%",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+          }}
+        />
+      </div>
+    )}
+
+    {/* Applications Table */}
+    <div
+      style={{
+        background: "#fff",
+        padding: 12,
+        borderRadius: 10,
+        boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+      }}
+    >
+      {applications.length === 0 ? (
+        <div style={{ padding: 12, color: "#475569" }}>No applications yet.</div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid #eef2f7" }}>
+              <th style={thStyle}>Student</th>
+              <th style={thStyle}>Course</th>
+              <th style={thStyle}>Applied on</th>
+              <th style={thStyle}>Status</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {applications.map((a) => (
+              <tr key={a.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={tdStyle}>{a.fullName || "N/A"}</td>
+                <td style={tdStyle}>{a.courseName || "—"}</td>
+                <td style={tdStyle}>
+                  {a.createdAt
+                    ? new Date(a.createdAt.seconds * 1000).toLocaleDateString()
+                    : "—"}
+                </td>
+                <td style={tdStyle}>
+                  <span style={{ ...statusBadge(a.status) }}>{a.status}</span>
+                </td>
+                <td style={tdStyle}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select
+                      value={a.status}
+                      onChange={(e) => handleStatusChange(a.id, e.target.value)}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 8,
+                        border: "1px solid #e6eef6",
+                      }}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="admitted">Admitted</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+
+                    <button
+                      onClick={async () => {
+                        try {
+                          const sDoc = await getDoc(
+                            doc(db, "students", a.studentId)
+                          );
+                          if (sDoc.exists()) {
+                            setViewStudent(sDoc.data());
+                          } else {
+                            showToast("error", "Student record not found");
+                          }
+                        } catch (err) {
+                          console.error(err);
+                          showToast("error", "Failed to fetch student");
+                        }
+                      }}
+                      style={{
+                        background: "#f8fafc",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: 8,
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <Eye size={14} /> View
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  </section>
+)}
+
+
+
+
 
       </main>
 

@@ -1,7 +1,7 @@
 // src/pages/StudentDashboard.js
 import React, { useEffect, useState } from "react";
 import { auth, db, storage } from "./firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut,  } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import {
   doc,
@@ -11,9 +11,10 @@ import {
   where,
   getDocs,
   orderBy,
-  deleteDoc,
+  serverTimestamp,
+  addDoc,
   updateDoc,
-  addDoc
+  deleteDoc
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import {
@@ -41,6 +42,9 @@ function StudentDashboard() {
   const [jobs, setJobs] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [expandedInst, setExpandedInst] = useState(null);
+  const [expandedCompany, setExpandedCompany] = useState(null);
+  const [companies, setCompanies] = useState([]);
+
 
   const navigate = useNavigate();
 
@@ -62,6 +66,27 @@ function StudentDashboard() {
     return () => unsubscribe();
   }, [navigate]);
 
+
+  useEffect(() => {
+  const fetchData = async () => {
+    try {
+      // Fetch companies
+      const compSnap = await getDocs(collection(db, "companies"));
+      setCompanies(compSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+      // Fetch jobs
+      const jobSnap = await getDocs(collection(db, "jobs"));
+      setJobs(jobSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchData();
+}, []);
+
+
+  // ---------- Fetch Data ----------
   const fetchStudentData = async (studentId) => {
     // Applications
     const applicationsSnap = await getDocs(
@@ -69,23 +94,27 @@ function StudentDashboard() {
     );
     setApplications(applicationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
-    // Institutions, faculties, and courses
+    // Institutions + Faculties + Courses
     const institutionsSnap = await getDocs(collection(db, "institutions"));
-    const institutionsData = [];
-    for (let instDoc of institutionsSnap.docs) {
+    const facultiesSnap = await getDocs(collection(db, "faculties"));
+    const coursesSnap = await getDocs(collection(db, "courses"));
+
+    const institutionsData = institutionsSnap.docs.map(instDoc => {
       const instData = instDoc.data();
-      const facultiesSnap = await getDocs(collection(db, "institutions", instDoc.id, "faculties"));
-      const facultiesData = [];
-      for (let facDoc of facultiesSnap.docs) {
-        const coursesSnap = await getDocs(collection(db, "institutions", instDoc.id, "faculties", facDoc.id, "courses"));
-        facultiesData.push({
-          id: facDoc.id,
-          ...facDoc.data(),
-          courses: coursesSnap.docs.map(course => ({ id: course.id, ...course.data() }))
+
+      const instFaculties = facultiesSnap.docs
+        .filter(facDoc => facDoc.data().institutionId === instDoc.id)
+        .map(facDoc => {
+          const facData = facDoc.data();
+          const facCourses = coursesSnap.docs
+            .filter(courseDoc => courseDoc.data().facultyId === facDoc.id)
+            .map(courseDoc => ({ id: courseDoc.id, ...courseDoc.data() }));
+          return { id: facDoc.id, ...facData, courses: facCourses };
         });
-      }
-      institutionsData.push({ id: instDoc.id, ...instData, faculties: facultiesData });
-    }
+
+      return { id: instDoc.id, ...instData, faculties: instFaculties };
+    });
+
     setInstitutions(institutionsData);
 
     // Uploads
@@ -107,12 +136,14 @@ function StudentDashboard() {
     setNotifications(notificationsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
   };
 
+  // ---------- Eligibility ----------
   const checkEligibility = (student, item) => {
     if (!student || !item) return false;
     if (item.requiredGPA && student.gpa < item.requiredGPA) return false;
     return true;
   };
 
+  // ---------- Course Application ----------
   const handleApplyCourse = async (instId, facId, course) => {
     const currentApps = applications.filter(app => app.institutionId === instId);
     if (currentApps.length >= 2) return alert("You can only apply for 2 courses per institution.");
@@ -124,7 +155,7 @@ function StudentDashboard() {
       facultyId: facId,
       courseId: course.id,
       courseName: course.name,
-      institutionName: institutions.find(inst => inst.id === instId)?.name,
+      institutionName: institutions.find(inst => inst.id === instId)?.fullName,
       status: "Pending",
       createdAt: new Date()
     };
@@ -134,6 +165,7 @@ function StudentDashboard() {
     alert("Application submitted!");
   };
 
+  // ---------- Upload ----------
   const handleUpload = async (file, type) => {
     if (!file) return;
     const storageRef = ref(storage, `uploads/${auth.currentUser.uid}/${file.name}`);
@@ -149,19 +181,46 @@ function StudentDashboard() {
     alert("File uploaded!");
   };
 
+  // ---------- Withdraw Application ----------
+  const handleWithdrawApplication = async (appId) => {
+    if (!window.confirm("Are you sure you want to withdraw this application?")) return;
+    await deleteDoc(doc(db, "applications", appId));
+    setApplications(prev => prev.filter(a => a.id !== appId));
+    alert("Application withdrawn.");
+  };
+
+  // ---------- Apply for Job ----------
+  const handleApplyJob = async (job) => {
+  if (!student) return alert("Student not loaded");
+
+  try {
+    await addDoc(collection(db, "JobApplications"), {
+      studentId: student.uid,
+      studentName: student.fullName || "Unknown",
+      jobId: job.id,
+      jobTitle: job.title || "No title",
+      companyId: job.companyId,
+      appliedAt: serverTimestamp(),
+      status: "pending",
+      notes: ""
+    });
+
+    alert("Application submitted successfully!");
+  } catch (err) {
+    console.error(err);
+    alert("Failed to apply: " + err.message);
+  }
+};
+
+  // ---------- Logout ----------
   const handleLogout = async () => {
     await signOut(auth);
     navigate("/login");
   };
 
-  const handleDeleteUpload = async (uploadId) => {
-    await deleteDoc(doc(db, "uploads", uploadId));
-    setUploads(prev => prev.filter(u => u.id !== uploadId));
-    alert("Upload deleted.");
-  };
-
   if (loading) return <p style={{ textAlign: "center", marginTop: 100 }}>Loading...</p>;
 
+  // ---------- Styles ----------
   const card = { background: "#fff", padding: 18, borderRadius: 12, boxShadow: "0 6px 18px rgba(2,6,23,0.06)", marginBottom: 16 };
   const cardLarge = { ...card, padding: 24 };
   const bigInput = { width: "100%", padding: 12, borderRadius: 10, border: "1px solid #cbd5e1", fontSize: 14 };
@@ -171,58 +230,167 @@ function StudentDashboard() {
     border: "none", background: active ? "#2563eb" : "transparent", color: active ? "#fff" : "#0b1220", cursor: "pointer", fontWeight: 700
   });
 
+  // ---------- Section Rendering ----------
   const renderSection = () => {
     switch (selectedSection) {
       case "Profile":
-        return (
-          <section style={cardLarge}>
-            <h2 style={{ margin: 0, marginBottom: 12, fontSize: 20, color: "#0b1220" }}>Student Profile</h2>
-            <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginTop: 12 }}>
-              <div style={{ width: 220, minWidth: 220 }}>
-                <div style={{ width: 220, height: 220, borderRadius: 12, overflow: "hidden", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(2,6,23,0.04)" }}>
-                  {student?.photoURL
-                    ? <img src={student.photoURL} alt="student" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    : <div style={{ color: "#94a3b8", fontSize: 14, textAlign: "center", padding: 12 }}>No image yet<br />Upload profile</div>
-                  }
-                </div>
+  return (
+    <section style={cardLarge}>
+      <h2 style={{ margin: 0, marginBottom: 12, fontSize: 20, color: "#0b1220" }}>
+        Student Profile
+      </h2>
+
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", marginTop: 12 }}>
+        {/* PROFILE IMAGE */}
+        <div style={{ width: 220, minWidth: 220 }}>
+          <div
+            style={{
+              width: 220,
+              height: 220,
+              borderRadius: 12,
+              overflow: "hidden",
+              background: "#f8fafc",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+              position: "relative",
+            }}
+          >
+            {student?.photoURL ? (
+              <img
+                src={student.photoURL}
+                alt="student"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  color: "#94a3b8",
+                  fontSize: 14,
+                  textAlign: "center",
+                  padding: 12,
+                }}
+              >
+                No image yet
+                <br />
+                Upload profile
               </div>
-              <div style={{ flex: 1 }}>
-                {["fullName","email","phone"].map(field => (
-                  <div key={field} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-                    <input
-                      type={field === "email" ? "email" : "text"}
-                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                      value={student?.[field] || ""}
-                      onChange={e => setStudent(prev => ({ ...prev, [field]: e.target.value }))}
-                      style={bigInput}
-                    />
-                    <button
-                      onClick={async () => {
-                        await updateDoc(doc(db, "students", auth.currentUser.uid), { [field]: student[field] });
-                        alert(`${field} updated`);
-                      }}
-                      style={{ ...primaryButton, minWidth: 120 }}
-                    ><Edit size={16} /> Save</button>
-                  </div>
-                ))}
-                <div style={{ marginTop: 6 }}>
-                  <textarea
-                    placeholder="Address / Bio"
-                    value={student?.address || ""}
-                    onChange={e => setStudent(prev => ({ ...prev, address: e.target.value }))}
-                    style={{ ...bigInput, minHeight: 120 }}
-                  />
-                  <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
-                    <button onClick={async () => {
-                      await updateDoc(doc(db, "students", auth.currentUser.uid), { address: student.address });
-                      alert("Address updated");
-                    }} style={{ ...primaryButton }}><Edit size={16} /> Save</button>
-                  </div>
-                </div>
-              </div>
+            )}
+
+            {/* Upload Photo Button */}
+            <label
+              htmlFor="photoUpload"
+              style={{
+                position: "absolute",
+                bottom: 8,
+                right: 8,
+                background: "#2563eb",
+                color: "#fff",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontSize: 13,
+                cursor: "pointer",
+                fontWeight: 500,
+                boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+              }}
+            >
+              Upload
+            </label>
+            <input
+              id="photoUpload"
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                try {
+                  const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
+                  const { storage } = await import("../pages/firebase"); // adjust path if needed
+
+                  const storageRef = ref(storage, `students/${auth.currentUser.uid}/profile.jpg`);
+                  await uploadBytes(storageRef, file);
+                  const photoURL = await getDownloadURL(storageRef);
+
+                  await updateDoc(doc(db, "students", auth.currentUser.uid), { photoURL });
+                  setStudent((prev) => ({ ...prev, photoURL }));
+                  alert("Profile photo updated successfully!");
+                } catch (err) {
+                  console.error(err);
+                  alert("Failed to upload image.");
+                }
+              }}
+            />
+          </div>
+        </div>
+
+        {/* PROFILE DETAILS */}
+        <div style={{ flex: 1 }}>
+          {["fullName", "email", "phone"].map((field) => (
+            <div key={field} style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+              <input
+                type={field === "email" ? "email" : "text"}
+                placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                value={student?.[field] || ""}
+                onChange={(e) =>
+                  setStudent((prev) => ({ ...prev, [field]: e.target.value }))
+                }
+                style={bigInput}
+              />
+              <button
+                onClick={async () => {
+                  await updateDoc(doc(db, "students", auth.currentUser.uid), {
+                    [field]: student[field],
+                  });
+                  alert(`${field} updated`);
+                }}
+                style={{ ...primaryButton, minWidth: 120 }}
+              >
+                <Edit size={16} /> Save
+              </button>
             </div>
-          </section>
-        );
+          ))}
+
+          {/* ADDRESS / BIO */}
+          <div style={{ marginTop: 6 }}>
+            <textarea
+              placeholder="Address / Bio"
+              value={student?.address || ""}
+              onChange={(e) =>
+                setStudent((prev) => ({ ...prev, address: e.target.value }))
+              }
+              style={{ ...bigInput, minHeight: 120 }}
+            />
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                onClick={async () => {
+                  await updateDoc(doc(db, "students", auth.currentUser.uid), {
+                    address: student.address,
+                  });
+                  alert("Address updated");
+                }}
+                style={{ ...primaryButton }}
+              >
+                <Edit size={16} /> Save
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 
       case "Institutions":
         return (
@@ -236,13 +404,16 @@ function StudentDashboard() {
                     <div>
                       <h3>{inst.fullName}</h3>
                       <p>{inst.description}</p>
-                      <p><strong>Email:</strong> {inst.email} | <strong>Website:</strong> {inst.website}</p>
+                      <p>
+                        <strong>Email:</strong> {inst.documents?.email || "N/A"} | <strong>Website:</strong> {inst.website || "N/A"} <br />
+                        <strong>Address:</strong> {inst.documents?.address || "N/A"}
+                      </p>
                     </div>
                   </div>
                   <button onClick={() => setExpandedInst(isExpanded ? null : inst.id)} style={{ ...primaryButton, marginTop: 12 }}>
                     {isExpanded ? "Hide Courses" : "View Courses & Requirements"}
                   </button>
-                  {isExpanded && inst.faculties && (
+                  {isExpanded && inst.faculties?.length > 0 && (
                     <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                       {inst.faculties.map(fac => (
                         <div key={fac.id} style={{ background: "#f1f5f9", padding: 12, borderRadius: 8 }}>
@@ -276,60 +447,248 @@ function StudentDashboard() {
           </div>
         );
 
-      case "Applications":
-        return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {applications.map(app => (
-              <div key={app.id} style={{ ...card }}>
-                <strong>{app.courseName}</strong> @ {app.institutionName} <br/>
-                Status: {app.status} <br/>
-                Applied on: {app.createdAt.toDate ? app.createdAt.toDate().toLocaleString() : new Date(app.createdAt.seconds*1000).toLocaleString()}
-              </div>
-            ))}
-            {applications.length === 0 && <p>No applications submitted yet.</p>}
-          </div>
-        );
+  case "Applications":
+  return (
+    <div style={{ marginTop: 10 }}>
+      <h2 style={{ marginBottom: 12 }}>My Applications</h2>
+
+      {applications.length === 0 ? (
+        <div
+          style={{
+            background: "#fff",
+            padding: 16,
+            borderRadius: 10,
+            boxShadow: "0 4px 12px rgba(2,6,23,0.06)",
+            textAlign: "center",
+            color: "#64748b",
+          }}
+        >
+          No applications yet.
+        </div>
+      ) : (
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 10,
+            boxShadow: "0 6px 18px rgba(2,6,23,0.04)",
+            overflowX: "auto",
+          }}
+        >
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              minWidth: 600,
+            }}
+          >
+            <thead>
+              <tr
+                style={{
+                  textAlign: "left",
+                  borderBottom: "2px solid #e2e8f0",
+                  background: "#f8fafc",
+                }}
+              >
+                <th style={{ padding: "12px 16px", fontWeight: 600, color: "#334155" }}>#</th>
+                <th style={{ padding: "12px 16px", fontWeight: 600, color: "#334155" }}>Course / Job</th>
+                <th style={{ padding: "12px 16px", fontWeight: 600, color: "#334155" }}>Institution</th>
+                <th style={{ padding: "12px 16px", fontWeight: 600, color: "#334155" }}>Status</th>
+                <th style={{ padding: "12px 16px", fontWeight: 600, color: "#334155" }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {applications.map((app, index) => (
+                <tr
+                  key={app.id}
+                  style={{
+                    borderBottom: "1px solid #f1f5f9",
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <td style={{ padding: "12px 16px", color: "#475569" }}>
+                    {index + 1}
+                  </td>
+                  <td style={{ padding: "12px 16px", color: "#1e293b", fontWeight: 500 }}>
+                    {app.courseName || app.jobName || "—"}
+                  </td>
+                  <td style={{ padding: "12px 16px", color: "#475569" }}>
+                    {app.institutionName || "N/A"}
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <span
+                      style={{
+                        background:
+                          app.status === "admitted"
+                            ? "#dcfce7"
+                            : app.status === "rejected"
+                            ? "#fee2e2"
+                            : "#fef9c3",
+                        color:
+                          app.status === "admitted"
+                            ? "#166534"
+                            : app.status === "rejected"
+                            ? "#991b1b"
+                            : "#92400e",
+                        padding: "4px 10px",
+                        borderRadius: 20,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        textTransform: "capitalize",
+                      }}
+                    >
+                      {app.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <button
+                      style={{
+                        background: "#ef4444",
+                        color: "#fff",
+                        border: "none",
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        fontSize: 14,
+                        transition: "background 0.2s",
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#dc2626")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "#ef4444")}
+                      onClick={() => handleWithdrawApplication(app.id)}
+                    >
+                      Withdraw
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 
       case "Uploads":
         return (
           <div>
+            <h3>Upload Documents</h3>
             <input type="file" onChange={e => handleUpload(e.target.files[0], "document")} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+            <div style={{ marginTop: 12 }}>
               {uploads.map(up => (
-                <div key={up.id} style={{ ...card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <a href={up.url} target="_blank" rel="noopener noreferrer">{up.type}</a>
-                  <button onClick={() => handleDeleteUpload(up.id)} style={{ ...primaryButton, background: "#ef4444" }}>Delete</button>
+                <div key={up.id} style={{ ...card }}>
+                  <a href={up.url} target="_blank" rel="noreferrer">{up.type} - View</a>
+                  <p>{new Date(up.createdAt.seconds * 1000).toLocaleString()}</p>
                 </div>
               ))}
-              {uploads.length === 0 && <p>No uploads yet.</p>}
             </div>
           </div>
         );
 
-      case "Jobs":
+  case "Jobs":
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {companies.length === 0 && <p>Loading companies...</p>}
+
+      {companies.map((comp) => {
+        // Filter jobs for this company
+        const compJobs = jobs.filter((job) => job.companyId === comp.uid);
+        const isExpanded = expandedCompany === comp.uid;
+
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {jobs.map(job => (
-              <div key={job.id} style={{ ...card }}>
-                <strong>{job.title}</strong> @ {job.company} <br/>
-                {job.description} <br/>
-                <small>Requirements: {(job.requirements || []).join(", ")}</small>
+          <div key={comp.uid} style={{ ...card }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <img
+                src={comp.photoURL || "https://via.placeholder.com/120"}
+                alt={comp.fullName}
+                style={{ width: 120, height: 120, borderRadius: 12, objectFit: "cover" }}
+              />
+              <div>
+                <h3>{comp.fullName}</h3>
+                <p>{comp.description || "No description provided."}</p>
+                <p>
+                  <strong>Email:</strong> {comp.email || "N/A"} |{" "}
+                  <strong>Website:</strong> {comp.website || "N/A"}
+                </p>
               </div>
-            ))}
-            {jobs.length === 0 && <p>No available jobs at the moment.</p>}
+            </div>
+
+            <button
+              onClick={() => setExpandedCompany(isExpanded ? null : comp.uid)}
+              style={{ ...primaryButton, marginTop: 12 }}
+            >
+              {isExpanded ? "Hide Jobs" : "View Jobs"}
+            </button>
+
+            {isExpanded && (
+              <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+                {compJobs.length === 0 && <p>No jobs posted yet.</p>}
+                {compJobs.map((job) => {
+                  const isEligible = checkEligibility(student, job);
+
+                  return (
+                    <div
+                      key={job.id}
+                      style={{
+                        ...card,
+                        borderLeft: "4px solid #2563eb",
+                        background: isEligible ? "#f0f9ff" : "#fef2f2",
+                        transition: "background 0.3s",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <h4 style={{ margin: 0 }}>{job.title}</h4>
+                        {isEligible ? (
+                          <button
+                            style={{ ...primaryButton, background: "#2563eb" }}
+                            onClick={() => handleApplyJob(job)}
+                          >
+                            Apply
+                          </button>
+                        ) : (
+                          <span style={{ color: "red", fontWeight: 600 }}>Not eligible</span>
+                        )}
+                      </div>
+
+                      <p style={{ marginTop: 8 }}>{job.description || "No description provided."}</p>
+
+                      {job.qualifications?.length > 0 && (
+                        <p>
+                          <strong>Qualifications:</strong> {job.qualifications.join(", ")}
+                        </p>
+                      )}
+
+                      <p>
+                        <strong>Posted At:</strong> {job.createdAt?.toDate?.().toLocaleString() || "N/A"}
+                      </p>
+                      <p>
+                        <strong>Last Updated:</strong> {job.updatedAt?.toDate?.().toLocaleString() || "N/A"}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
+      })}
+    </div>
+  );
+
+
+
+
 
       case "Notifications":
         return (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {notifications.map(notif => (
-              <div key={notif.id} style={{ ...card }}>
-                {notif.message} <br/>
-                <small>{notif.createdAt.toDate ? notif.createdAt.toDate().toLocaleString() : new Date(notif.createdAt.seconds*1000).toLocaleString()}</small>
+          <div>
+            {notifications.length === 0 && <p>No notifications.</p>}
+            {notifications.map(note => (
+              <div key={note.id} style={{ ...card }}>
+                <p>{note.message}</p>
+                <small>{new Date(note.createdAt.seconds * 1000).toLocaleString()}</small>
               </div>
             ))}
-            {notifications.length === 0 && <p>No notifications.</p>}
           </div>
         );
 
@@ -340,6 +699,7 @@ function StudentDashboard() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f1f5f9" }}>
+      {/* Sidebar */}
       <aside style={{
         width: sidebarOpen ? 260 : 0,
         transition: "width 0.3s",
@@ -371,6 +731,7 @@ function StudentDashboard() {
         </div>
       </aside>
 
+      {/* Main content */}
       <main style={{ flex: 1, padding: 28 }}>
         <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ ...primaryButton, padding: "6px 10px", fontSize: 14 }}>
