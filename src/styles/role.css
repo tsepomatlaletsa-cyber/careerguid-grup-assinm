@@ -1,0 +1,142 @@
+/* Full-page background */
+.role-selection-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-image: url("https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1950&q=80");
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  font-family: 'Poppins', sans-serif;
+  overflow: hidden;
+}
+
+/* Overlay for darker blur effect */
+.role-selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(3px);
+  z-index: 1;
+}
+
+/* Floating animated shapes */
+.floating-shapes {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.shape {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.4;
+  animation: float 12s infinite ease-in-out alternate;
+}
+
+.shape1 {
+  width: 120px;
+  height: 120px;
+  background: #ff6b81;
+  top: 10%;
+  left: 15%;
+  animation-delay: 0s;
+}
+
+.shape2 {
+  width: 180px;
+  height: 180px;
+  background: #6b5bff;
+  top: 60%;
+  left: 70%;
+  animation-delay: 3s;
+}
+
+.shape3 {
+  width: 100px;
+  height: 100px;
+  background: #ffcd3c;
+  top: 30%;
+  left: 80%;
+  animation-delay: 5s;
+}
+
+.shape4 {
+  width: 150px;
+  height: 150px;
+  background: #3cfbff;
+  top: 75%;
+  left: 20%;
+  animation-delay: 2s;
+}
+
+@keyframes float {
+  0% { transform: translateY(0px) translateX(0px); }
+  50% { transform: translateY(-30px) translateX(20px); }
+  100% { transform: translateY(0px) translateX(0px); }
+}
+
+/* Container for cards */
+.role-selection-container {
+  position: relative;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  padding: 60px 50px;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+  color: #fff;
+  max-width: 900px;
+  width: 90%;
+}
+
+.role-selection-container h2 {
+  margin-bottom: 50px;
+  font-size: 2rem;
+  letter-spacing: 1px;
+}
+
+/* Role cards grid */
+.role-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 25px;
+}
+
+/* Individual role card */
+.role-card {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  border-radius: 15px;
+  padding: 30px 20px;
+  cursor: pointer;
+  transition: all 0.35s ease;
+  font-weight: 600;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  text-align: center;
+  box-shadow: 0 6px 25px rgba(0,0,0,0.2);
+}
+
+.role-card:hover {
+  transform: translateY(-10px) scale(1.05);
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 10px 35px rgba(0,0,0,0.3);
+}
+
+.role-card-img {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+}
