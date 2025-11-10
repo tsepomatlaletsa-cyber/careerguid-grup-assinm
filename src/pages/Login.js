@@ -17,10 +17,10 @@ function Login() {
 
   // --- Demo users (for instant preview) ---
   const DEMO_USERS = {
-    student: { email: "student@example.com", password: "student123" },
-    institution: { email: "institution@example.com", password: "institution123" },
-    company: { email: "company@example.com", password: "company123" },
-    admin: { email: "admin@example.com", password: "admin123" },
+    student: { email: "student222@gmail.com", password: "123456" },
+    institution: { email: "institution@xample.com", password: "institution123" },
+    company: { email: "vcl@lesotho.com", password: "123456" },
+    admin: { email: "admin@gmail.com", password: "123456" },
   };
 
   // --- Login handler (Firebase + Firestore role check) ---
@@ -87,25 +87,57 @@ function Login() {
         alert("❌ Incorrect password.");
       } else if (err.code === "auth/invalid-email") {
         alert("❌ Invalid email format.");
-      } else {
-        alert("⚠️ Login failed. Check your auth method & Firestore rules.");
-      }
+      } 
     } finally {
       setLoading(false);
     }
   };
 
-  // --- Demo login (auto-fills & signs in) ---
+  // --- Demo login (auto-signs in immediately) ---
   const handleDemoLogin = async (role) => {
     const user = DEMO_USERS[role];
     if (!user) return alert("Unknown demo role.");
 
-    setEmail(user.email);
-    setPassword(user.password);
+    setLoading(true);
+    setMessage("");
 
-    // simulate a form submit
-    const fakeEvent = { preventDefault: () => {} };
-    await handleLogin(fakeEvent);
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, user.email, user.password);
+      const userData = userCredential.user;
+
+      const snap = await getDoc(doc(db, "users", userData.uid));
+      if (!snap.exists()) {
+        alert("⚠️ User profile not found in Firestore.");
+        setLoading(false);
+        return;
+      }
+
+      const data = snap.data();
+      const roleLower = data.role?.toLowerCase();
+
+      switch (roleLower) {
+        case "graduate":
+        case "student":
+          navigate("/student");
+          break;
+        case "institution":
+          navigate("/institution");
+          break;
+        case "company":
+          navigate("/company");
+          break;
+        case "admin":
+          navigate("/admin");
+          break;
+        default:
+          alert("⚠️ Unknown role, please contact admin.");
+      }
+    } catch (err) {
+      console.error("Demo login error:", err);
+      alert("❌ Demo login failed. ");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- Social login placeholders ---

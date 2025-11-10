@@ -591,8 +591,11 @@ function StudentDashboard() {
       {companies.length === 0 && <p>Loading companies...</p>}
 
       {companies.map((comp) => {
-        // Filter jobs for this company
-        const compJobs = jobs.filter((job) => job.companyId === comp.uid);
+        // Filter jobs for this company safely
+        const compJobs = Array.isArray(jobs)
+          ? jobs.filter((job) => job.companyId === comp.uid)
+          : [];
+
         const isExpanded = expandedCompany === comp.uid;
 
         return (
@@ -623,8 +626,13 @@ function StudentDashboard() {
             {isExpanded && (
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                 {compJobs.length === 0 && <p>No jobs posted yet.</p>}
+
                 {compJobs.map((job) => {
-                  const isEligible = checkEligibility(student, job);
+                  const isEligible = student ? checkEligibility(student, job) : false;
+
+                  // Safely handle Firestore timestamps
+                  const createdAt = job.createdAt?.toDate?.() || null;
+                  const updatedAt = job.updatedAt?.toDate?.() || null;
 
                   return (
                     <div
@@ -659,10 +667,10 @@ function StudentDashboard() {
                       )}
 
                       <p>
-                        <strong>Posted At:</strong> {job.createdAt?.toDate?.().toLocaleString() || "N/A"}
+                        <strong>Posted At:</strong> {createdAt ? createdAt.toLocaleString() : "N/A"}
                       </p>
                       <p>
-                        <strong>Last Updated:</strong> {job.updatedAt?.toDate?.().toLocaleString() || "N/A"}
+                        <strong>Last Updated:</strong> {updatedAt ? updatedAt.toLocaleString() : "N/A"}
                       </p>
                     </div>
                   );
@@ -674,9 +682,6 @@ function StudentDashboard() {
       })}
     </div>
   );
-
-
-
 
 
       case "Notifications":

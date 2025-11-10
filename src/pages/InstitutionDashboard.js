@@ -13,15 +13,6 @@ import {
   Edit, Trash2, ChevronDown, ChevronUp, Plus, CheckCircle, AlertCircle
 } from "lucide-react";
 
-/*
-  InstitutionDashboard
-  - Profile (big inputs: name, email, website, description, photo)
-  - Faculties -> Courses -> admissionRequirements
-  - Add/Edit/Delete faculties & courses
-  - Toast notifications
-  - Sidebar hamburger
-  - Prevent admitting student to multiple programs (status change logic)
-*/
 
 const Toast = ({ type, message, onClose }) => {
   if (!message) return null;
