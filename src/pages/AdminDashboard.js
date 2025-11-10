@@ -1052,7 +1052,7 @@ case "Institutions":
                     <img src={inst.photoURL || "https://via.placeholder.com/80"} alt={inst.fullName} style={{ width: 60, height: 60, borderRadius: 12, objectFit: "cover" }} />
                     <div>
                       <h3 style={{ margin: 0 }}>{inst.fullName}</h3>
-                      <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>{inst.description || "No description"}</p>
+                      <p style={{ margin: 0, fontSize: 13, color: "#64748b" }}>{inst.address}</p>
                     </div>
                   </div>
                   <span style={{ fontSize: 20 }}>{isExpanded ? "▲" : "▼"}</span>

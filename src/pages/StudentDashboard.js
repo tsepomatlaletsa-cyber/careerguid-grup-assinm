@@ -403,10 +403,10 @@ function StudentDashboard() {
                     <img src={inst.photoURL} alt={inst.fullName} style={{ width: 120, height: 120, borderRadius: 12, objectFit: "cover" }} />
                     <div>
                       <h3>{inst.fullName}</h3>
-                      <p>{inst.description}</p>
+                      <p>{inst.role}</p>
                       <p>
-                        <strong>Email:</strong> {inst.documents?.email || "N/A"} | <strong>Website:</strong> {inst.website || "N/A"} <br />
-                        <strong>Address:</strong> {inst.documents?.address || "N/A"}
+                        <strong>Email:</strong> {inst.email || "N/A"} | <strong>Website:</strong> {inst.website || "N/A"} <br />
+                        <strong>Address:</strong> {inst.address || "N/A"}
                       </p>
                     </div>
                   </div>
@@ -569,21 +569,76 @@ function StudentDashboard() {
     </div>
   );
 
-      case "Uploads":
-        return (
-          <div>
-            <h3>Upload Documents</h3>
-            <input type="file" onChange={e => handleUpload(e.target.files[0], "document")} />
-            <div style={{ marginTop: 12 }}>
-              {uploads.map(up => (
-                <div key={up.id} style={{ ...card }}>
-                  <a href={up.url} target="_blank" rel="noreferrer">{up.type} - View</a>
-                  <p>{new Date(up.createdAt.seconds * 1000).toLocaleString()}</p>
-                </div>
-              ))}
-            </div>
+case "Uploads":
+  return (
+    <div style={{ maxWidth: 700, margin: "0 auto", padding: "20px", fontFamily: "Inter, sans-serif" }}>
+      <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 20, color: "#1e3a8a" }}>
+        Upload Documents
+      </h3>
+
+      {/* File Input */}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="file"
+          onChange={e => handleUpload(e.target.files[0], "document")}
+          style={{
+            padding: "8px",
+            borderRadius: 6,
+            border: "1px solid #cbd5e1",
+            cursor: "pointer",
+            fontSize: 14,
+          }}
+        />
+      </div>
+
+      {/* Uploaded Files List */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {uploads.length === 0 && (
+          <p style={{ color: "#555", fontStyle: "italic" }}>No documents uploaded yet.</p>
+        )}
+
+        {uploads.map(up => (
+          <div
+            key={up.id}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 16,
+              background: "#f9fafb",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "#f1f5f9";
+              e.currentTarget.style.transform = "translateY(-3px)";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "#f9fafb";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "0 2px 6px rgba(0,0,0,0.05)";
+            }}
+          >
+            <a
+              href={up.url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#2563eb", fontWeight: 600, textDecoration: "none" }}
+            >
+              {up.type} - View
+            </a>
+            <span style={{ fontSize: 12, color: "#555" }}>
+              {new Date(up.createdAt.seconds * 1000).toLocaleString()}
+            </span>
           </div>
-        );
+        ))}
+      </div>
+    </div>
+  );
+
 
   case "Jobs":
   return (
@@ -608,7 +663,7 @@ function StudentDashboard() {
               />
               <div>
                 <h3>{comp.fullName}</h3>
-                <p>{comp.description || "No description provided."}</p>
+                <p>{comp.role || "Company"}</p>
                 <p>
                   <strong>Email:</strong> {comp.email || "N/A"} |{" "}
                   <strong>Website:</strong> {comp.website || "N/A"}

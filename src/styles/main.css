@@ -824,3 +824,58 @@ h1 {
   margin-bottom: 1rem;
   text-align: center;
 }
+
+/* === Navbar Profile & Auth Buttons Styling === */
+.navbar-auth {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 20px;
+}
+
+/* Common button look for profile, login, and logout */
+.navbar-auth .auth-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background-color: #ffffff;
+  color: #007bff;
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid #ffffff;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.navbar-auth .auth-btn:hover {
+  background-color: #0056b3;
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.navbar-auth .auth-btn:active {
+  background-color: #00408d;
+  transform: translateY(0);
+}
+
+/* Profile-specific style (optional) */
+.auth-btn.profile {
+  background-color: #1e3a8a;
+  color: #fff;
+}
+
+.auth-btn.profile:hover {
+  background-color: #153eaf;
+}
+
+/* Make them stay inline with menu */
+.nav-menu,
+.navbar-auth {
+  display: flex;
+  align-items: center;
+}
+

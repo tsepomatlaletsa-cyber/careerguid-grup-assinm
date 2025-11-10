@@ -12,6 +12,8 @@ import Contact from "./pages/Contact";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import RoleSelection from "./pages/RoleSelection";
+import JobsSection from "./components/JobsSection";
+import InstitutionsSection from "./components/InstitutionsSection";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/JobsSection" element={<JobsSection />} />
+        <Route path="/Institutions" element={<InstitutionsSection />} />
         <Route path="/contact" element={<Contact />} /> 
         <Route path="/role" element={<RoleSelection />} />
         <Route path="/login" element={<Login />} />

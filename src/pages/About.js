@@ -10,9 +10,9 @@ function About() {
   };
 
   const teamMembers = [
-    { name: "Thabo Matlaletsa", role: "Founder & CEO", img: "https://randomuser.me/api/portraits/men/32.jpg" },
-    { name: "Lerato Mokoena", role: "CTO", img: "https://randomuser.me/api/portraits/women/44.jpg" },
-    { name: "Kabelo Khumalo", role: "Lead Designer", img: "https://randomuser.me/api/portraits/men/55.jpg" },
+    { name: "Tshepo Matlaletsa", role: "Founder & CEO", img: "https://randomuser.me/api/portraits/men/32.jpg" },
+    { name: "Lehlohonolo Leputla", role: "CTO", img: "https://randomuser.me/api/portraits/women/44.jpg" },
+    { name: "Teboho Kolisang", role: "Lead Designer", img: "https://randomuser.me/api/portraits/men/55.jpg" },
   ];
 
   const testimonials = [
